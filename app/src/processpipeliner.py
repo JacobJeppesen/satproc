@@ -108,6 +108,9 @@ class ProcessPipeliner(object):
                     failed_product_date_abs_orbit.append(product_date_abs_orbit)
                 print("\n")
                 print("\n")
+                
+            for failed_product in failed_product_date_abs_orbit:
+                logging.info(f"Following product failed processing: {failed_product}")                
 
         if self.satellite == 's2' or self.satellite == 'all':
             logging.info("### Processing Sentinel-2 products ###")
