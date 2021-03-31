@@ -1,6 +1,7 @@
 from multiprocessing import Pool
 from pathlib import Path
 import shutil
+import os
 
 import numpy as np
 import pandas as pd
@@ -56,8 +57,7 @@ class ProcessPipeliner(object):
                 # NOTE: The code below is used for the Elsevier paper. Do not trust it too much. The s1_products_df_date
                 #       should be properly implemented, and so should the co-registering of Sentinel-1 data.
                 print("\n")
-#                 try:
-                if True:
+                try:
                     # Process the individual tiles
                     date = product_date_abs_orbit[:8]
                     abs_orbit = product_date_abs_orbit[9:]
@@ -67,24 +67,28 @@ class ProcessPipeliner(object):
 
                     # Multiprocessing method from here: https://stackoverflow.com/a/5442981/12045808 (if you want tqdm then look
                     # here https://github.com/tqdm/tqdm/issues/484#issuecomment-353383768)
-#                     index_arg = range(len(s1_products_df_date))
-#                     with Pool(processes=self.s1_num_proc) as pool:
-#                         pool.map(s1processor.process, index_arg)
+                    index_arg = range(len(s1_products_df_date))
+                    with Pool(processes=self.s1_num_proc) as pool:
+                        pool.map(s1processor.process, index_arg)
 
                     # Create the vrt with the combined tiles
                     vrt_path = s1processor.create_vrt_and_cog(product_date_abs_orbit, create_thumbnail=True)
 
                     # Co-register
                     if FLAGS.s1_coregister:
+                        logging.info("Co-registering")
                         coreg_path = (vrt_path.parent / f'{vrt_path.stem}_coreg').with_suffix('.tif')
                         s1processor.temp_coregister_function_for_elsevier_intepretability_paper(vrt_path, coreg_path)
 
                     # Move to final output path
                     if FLAGS.move_to_output_directory and FLAGS.output_directory is not None:
+                        logging.info("Moving files")
                         tif_path = vrt_path.with_suffix('.tif')
                         png_path = vrt_path.with_suffix('.png')
 #                         coreg_new_path = (Path(FLAGS.output_path) / vrt.name).with_suffix('.tif')
-                        tif_new_path = Path(FLAGS.output_path) / tif_path.name
+                        new_output_dir = Path(FLAGS.output_directory)
+                        print(str(new_output_dir))
+                        tif_new_path = new_output_dir / tif_path.name
                         png_new_path = Path(FLAGS.output_path) / png_path.name
                         logging.info(f"Moving {str(tif_path)} to output directory {str(tif_new_path)}")
                         if not tif_new_path.parent.exists():  # Create directory if it does not exist
@@ -98,9 +102,9 @@ class ProcessPipeliner(object):
                         # Delete all the individual tile data. Used for Elsevier paper due to lack of storage capacity. 
                         grd_data_path = Path('data/output/output_data/s1/GRD')
                         shutil.rmtree(grd_data_path)
-#                 except:
-#                     logging.info(f"Following date and absolute orbit failed: {product_date_abs_orbit}")
-#                     failed_product_date_abs_orbit.append(product_date_abs_orbit)
+                except:
+                    logging.info(f"Following date and absolute orbit failed: {product_date_abs_orbit}")
+                    failed_product_date_abs_orbit.append(product_date_abs_orbit)
                 print("\n")
                 print("\n")
 

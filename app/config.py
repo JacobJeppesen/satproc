@@ -14,7 +14,7 @@ def define_flags():
     flags.DEFINE_bool('process_tiles', True, 'Process the downloaded files')
     flags.DEFINE_bool('compress', True, 'Compress pre- and post-processed geotiff files')
     flags.DEFINE_bool('move_to_output_directory', False, 'Move output to output directory')
-    flags.DEFINE_string('output_directory', None, 'Choose a different output directory')
+    flags.DEFINE_string('output_directory', '/workspace/output_dir', 'Choose a different output directory')
     flags.DEFINE_string('logging_verbosity', 'info', 'Logging verbosity (debug|info|warning|error|fatal).')
 
     ###############
