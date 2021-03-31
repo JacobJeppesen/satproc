@@ -99,8 +99,9 @@ class ProcessPipeliner(object):
                     else:
                         pass
                         
-                    if self.del_intermediate:
+                    if FLAGS.s1_del_intermediate:
                         # Delete all the individual tile data. Used for Elsevier paper due to lack of storage capacity. 
+                        logging.info("Deleting output_data/s1/GRD folder")
                         grd_data_path = Path('data/output/output_data/s1/GRD')
                         shutil.rmtree(grd_data_path)
                 except:
