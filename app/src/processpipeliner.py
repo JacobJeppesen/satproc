@@ -1,9 +1,11 @@
 from multiprocessing import Pool
 from pathlib import Path
+import shutil
 
 import numpy as np
 import pandas as pd
 from absl import flags, logging
+from tqdm import tqdm
 
 from src.sentinelprocessors.s1processor import S1Processor
 from src.sentinelprocessors.s2processor import S2Processor
@@ -29,19 +31,78 @@ class ProcessPipeliner(object):
             s1processor = S1Processor(s1_products_df, self.directory)
             # Create folders now to avoid multiple processes trying to create the same folder later (leads to errors)
             s1processor.create_parent_folders()
-            # Multiprocessing method from here: https://stackoverflow.com/a/5442981/12045808 (if you want tqdm then look
-            # here https://github.com/tqdm/tqdm/issues/484#issuecomment-353383768)
-            index_arg = range(len(s1_products_df))
-            with Pool(processes=self.s1_num_proc) as pool:
-                pool.map(s1processor.process, index_arg)
 
             # Create a vrt for each product date
             s1_titles = s1_products_df['title'].values
             # Get the product data and absolute orbit to get a unique identifier for each Sentinel-1 pass
             product_dates_abs_orbits = [(title[17:25] + title[48:55]) for title in s1_titles]
             product_dates_abs_orbits = np.unique(product_dates_abs_orbits)
-            for product_date_abs_orbit in product_dates_abs_orbits:
-                s1processor.create_vrt_and_cog(product_date_abs_orbit)
+            
+            # TODO: To improve processing speed, run the parallel processing (ie. pool.map()) over the 
+            #       product_date_abs_orbit instead of the individual tiles inside the for-loop (just remove
+            #       the pool.map() of the individual tiles and use a for-loop to iterate through the tiles). 
+            #       This would results in the co-registration and the vrt_to_geotiff running in parallel, 
+            #       which should significantly decrease the processing time. Note that the the maximum number
+            #       of processes should be kept the same, as multiple number of tiles will be processed in parallel,
+            #       though not from the necessarily from the same date. In general, always try to perform the 
+            #       parallelization on the outer-most for-loop. The downside is that if the scene to processed
+            #       is from a single date with multiple tiles, there will be no parallization (except for the 
+            #       built-in in some of the used processing functions). But that should be fine. Generally, when
+            #       there is a big need for parallization, it is because data from multiple dates are being 
+            #       processed. For single-date datasets, the user can wait a bit longer.
+            
+            failed_product_date_abs_orbit = []
+            for product_date_abs_orbit in tqdm(product_dates_abs_orbits):
+                # NOTE: The code below is used for the Elsevier paper. Do not trust it too much. The s1_products_df_date
+                #       should be properly implemented, and so should the co-registering of Sentinel-1 data.
+                print("\n")
+#                 try:
+                if True:
+                    # Process the individual tiles
+                    date = product_date_abs_orbit[:8]
+                    abs_orbit = product_date_abs_orbit[9:]
+                    s1_products_df_date = s1_products_df[s1_products_df['title'].str.contains(date)]
+                    s1_products_df_date = s1_products_df_date[s1_products_df_date['title'].str.contains(abs_orbit)]
+                    s1processor.products_df = s1_products_df_date.copy()
+
+                    # Multiprocessing method from here: https://stackoverflow.com/a/5442981/12045808 (if you want tqdm then look
+                    # here https://github.com/tqdm/tqdm/issues/484#issuecomment-353383768)
+#                     index_arg = range(len(s1_products_df_date))
+#                     with Pool(processes=self.s1_num_proc) as pool:
+#                         pool.map(s1processor.process, index_arg)
+
+                    # Create the vrt with the combined tiles
+                    vrt_path = s1processor.create_vrt_and_cog(product_date_abs_orbit, create_thumbnail=True)
+
+                    # Co-register
+                    if FLAGS.s1_coregister:
+                        coreg_path = (vrt_path.parent / f'{vrt_path.stem}_coreg').with_suffix('.tif')
+                        s1processor.temp_coregister_function_for_elsevier_intepretability_paper(vrt_path, coreg_path)
+
+                    # Move to final output path
+                    if FLAGS.move_to_output_directory and FLAGS.output_directory is not None:
+                        tif_path = vrt_path.with_suffix('.tif')
+                        png_path = vrt_path.with_suffix('.png')
+#                         coreg_new_path = (Path(FLAGS.output_path) / vrt.name).with_suffix('.tif')
+                        tif_new_path = Path(FLAGS.output_path) / tif_path.name
+                        png_new_path = Path(FLAGS.output_path) / png_path.name
+                        logging.info(f"Moving {str(tif_path)} to output directory {str(tif_new_path)}")
+                        if not tif_new_path.parent.exists():  # Create directory if it does not exist
+                            os.makedirs(tif_new_path.parent)
+                        shutil.move(tif_path, tif_new_path)
+                        shutil.move(png_path, png_new_path)
+                    else:
+                        pass
+                        
+                    if self.del_intermediate:
+                        # Delete all the individual tile data. Used for Elsevier paper due to lack of storage capacity. 
+                        grd_data_path = Path('data/output/output_data/s1/GRD')
+                        shutil.rmtree(grd_data_path)
+#                 except:
+#                     logging.info(f"Following date and absolute orbit failed: {product_date_abs_orbit}")
+#                     failed_product_date_abs_orbit.append(product_date_abs_orbit)
+                print("\n")
+                print("\n")
 
         if self.satellite == 's2' or self.satellite == 'all':
             logging.info("### Processing Sentinel-2 products ###")

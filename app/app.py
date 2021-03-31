@@ -22,7 +22,7 @@ def main(argv):
     logging.set_verbosity(FLAGS.logging_verbosity)  # Must be called after duallog.setup() to function properly
 
     # Configure GDAL
-    gdal.SetCacheMax(8*1000000000)
+    gdal.SetCacheMax(16000000000)
 
     # Create absolute paths (either use full path provided as argument or use data dir in the project folder)
     data_dir = Path(FLAGS.data_directory) if os.path.isabs(FLAGS.data_directory) else Path.cwd() / FLAGS.data_directory

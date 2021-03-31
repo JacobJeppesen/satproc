@@ -13,7 +13,7 @@ FLAGS = flags.FLAGS
 class Downloader(object):
     def __init__(self, username, password, satellite, order_id, directory=Path('/data/')):
         # The connection to ESA scihub
-        self.api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
+        self.api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus', show_progressbars=True)
 
         # Sentinel-5p currently has its own pre-operations hub
         self.api_s5p = SentinelAPI(user='s5pguest', password='s5pguest', api_url='https://s5phub.copernicus.eu/dhus')

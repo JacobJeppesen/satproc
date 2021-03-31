@@ -110,22 +110,24 @@ class S1Processor(BaseProcessor):
                 dtype=dtype)
 
             # Read each layer and write it to stack
-            with rasterio.open(dst_path, 'w', **profile) as dst:
+            with rasterio.open(dst_path, 'w', **profile, BIGTIFF='YES') as dst:
                 for i, layer in enumerate(file_list, start=1):
                     with rasterio.open(layer) as src1:
                         dst.write_band(i, src1.read(1).astype(dtype))
 
             # Create cloud optimized geotiff
-            self.create_cog(dst_path, compression='DEFLATE')
+            # NOTE: Commented out for Elsevier paper to improve processing speed (the individual tiles are deleted after they have been combined anyways)
+#             self.create_cog(dst_path, compression='DEFLATE')
 
             # Create thumbnail of the RGB image
-            self.create_sentinel1_thumbnail(dst_path)
+            # NOTE: Commented out for Elsevier paper to improve processing speed (the individual tiles are deleted after they have been combined anyways)
+#             self.create_sentinel1_thumbnail(dst_path)
 
             logging.debug('Sentinel-1 product has had RGB geotiff created: ' + str(dst_path))
         else:
             logging.debug('Sentinel-1 product already had RGB geotiff created: ' + str(dst_path))
 
-    def create_vrt_and_cog(self, product_date_abs_orbit):
+    def create_vrt_and_cog(self, product_date_abs_orbit, create_thumbnail=True):
         logging.info("Creating Sentinel-1 vrt and geotiff file(s) for date and abs orbit: " + product_date_abs_orbit)
         rgb_paths = []
         for index in range(len(self.products_df.index)):
@@ -144,15 +146,21 @@ class S1Processor(BaseProcessor):
         vrt_name = satellite_name + '_' + product_date_abs_orbit + '_' + pass_mode + '_' + rel_orbit + '_RGB.vrt'
         vrt_path = Path(self.directory / 'output_data' / 's1' / 'combined' / vrt_name)
         self.create_vrt(src_paths=rgb_paths, vrt_path=vrt_path)
-
+        
         img_path = vrt_path.with_suffix('.tif')
         # File check has to be done here or COG will be made every time (there might be better way to implement this)
         if not img_path.exists() or self.overwrite_products:
-            self.vrt_to_geotiff(vrt_path, img_path)
             # TODO: Get reprojection to work properly
             # self.reproject_image(src=img_path, dst=img_path, crs=self.output_crs)
-            self.create_cog(img_path, compression='DEFLATE')
-            self.create_sentinel1_thumbnail(img_path)
+            # Create cloud optimized geotiff
+            self.vrt_to_geotiff(vrt_path, img_path, dst_format='COG', compression='DEFLATE')
+            # The new vrt_to_geotiff() function should make cloud-optimized geotiff by default, so there should not be a reason to do it afterwards
+#             self.create_cog(img_path, compression='DEFLATE')
+            if create_thumbnail:
+                self.create_sentinel1_thumbnail(img_path)
+
+        # NOTE: This return is for temporary use to run the temp_coregister_function_for_elsevier_intepretability_paper() function.
+        return vrt_path
 
     def create_parent_folders(self):
         product_paths = self.products_df['product_path'].values  # NumPy array of paths
@@ -213,3 +221,33 @@ class S1Processor(BaseProcessor):
 
         return rel_orbit, pass_mode
 
+    @staticmethod
+    def temp_coregister_function_for_elsevier_intepretability_paper(target_img, coreg_path):
+        from arosics import COREG
+        from pathlib import Path
+        import logging
+
+        # Remember to set nodata value to 0 when saving the ortofoto
+        reference_im_path = Path('/workspace/mnt/app/data/reference')
+        im_reference = str(reference_im_path / 'ortofoto_reference_epsg4326.tif')
+#         im_target = '/workspace/mnt/app/data/output/output_data/s1/combined/S1A_20210324_037136_DSC_139_RGB.tif'
+#         dst_path = '/workspace/mnt/app/data/output/output_data/s1/combined/S1A_20210324_037136_DSC_139_RGB_coreg.tif'
+        im_target = str(target_img)
+        
+        kwargs = {
+        #     'mask_baddata_ref': str(reference_im_path / 'ortofoto_reference_epsg4326_nodata_mask.tif'),
+            'path_out': str(coreg_path),
+            'fmt_out': 'COG',
+            'out_crea_options': ['COMPRESS=DEFLATE', 'NUM_THREADS=ALL_CPUS'],
+            'wp': (9.20, 56.10),
+            'ws': (8192, 8192),
+            'nodata': (255., -32768),
+            'calc_corners': False,
+            'q': True,
+            'v': False
+        }
+
+        CR = COREG(im_reference, im_target, **kwargs)
+        CR.calculate_spatial_shifts()
+        CR.correct_shifts()
+        logging.info("Shift reliability is " + str(round(CR.shift_reliability, 2)) + "% for " + str(dst_path))

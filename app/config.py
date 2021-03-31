@@ -13,6 +13,8 @@ def define_flags():
     flags.DEFINE_bool('download', True, 'Download the files')
     flags.DEFINE_bool('process_tiles', True, 'Process the downloaded files')
     flags.DEFINE_bool('compress', True, 'Compress pre- and post-processed geotiff files')
+    flags.DEFINE_bool('move_to_output_directory', False, 'Move output to output directory')
+    flags.DEFINE_string('output_directory', None, 'Choose a different output directory')
     flags.DEFINE_string('logging_verbosity', 'info', 'Logging verbosity (debug|info|warning|error|fatal).')
 
     ###############
@@ -42,6 +44,7 @@ def define_flags():
                          'Number of parallel processes for Sentinel-1 processing (approx. 20 GB RAM per process)')
     flags.DEFINE_bool('s1_del_intermediate', False, 'Delete the intermediate Sentinel-1 processing data')
     flags.DEFINE_string('s1_output_crs', 'EPSG:32632', 'Coordinate reference system for the output combined geotiff')
+    flags.DEFINE_bool('s1_coregister', False, 'Co-register the Sentinel-1 image (NOTE: Currently only works on the final combined geotiff (ie. from the .vrt file))')
     # Sentinel-2
     flags.DEFINE_integer('s2_num_proc', 6,
                          'Number of parallel processes for Sentinel-1 processing (approx. 8 GB RAM per process)')

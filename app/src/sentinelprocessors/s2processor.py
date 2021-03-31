@@ -199,7 +199,7 @@ class S2Processor(BaseProcessor):
             dst_path = Path(str(vrt_path)[:-4] + '_coreg.tiff')
             if coreg_info is None:  # Find the spatial shift (ie. for the first mode)
                 coreg_info = self.coregister(src_path=vrt_path, dst_path=dst_path)
-            elif coreg_info is not 'coreg_error':  # Apply to other modes
+            elif coreg_info != 'coreg_error':  # Apply to other modes
                 try:
                     DESHIFTER(im2shift=str(vrt_path), path_out=str(dst_path), fmt_out='GTIFF',
                               coreg_results=coreg_info).correct_shifts()
@@ -208,6 +208,21 @@ class S2Processor(BaseProcessor):
                     logging.error("Coregistration error with file: " + str(dst_path))
             else:  # Log an error if the coregistration has failed
                 logging.error("Coregistration error with file: " + str(dst_path))
+
+    def __get_tile_paths(self, product_date, mode='TCI'):
+        tile_paths = []  # Placeholder for the paths to all TCI products
+        for index in range(len(self.products_df.index)):
+            product = self.products_df.iloc[[index]].copy()
+            product = self.__concat_resolutions_paths(product)
+            res_10m_path = product['res_10m_path'].values[0]
+            tile_path = list(res_10m_path.glob('*_' + mode + '_10m.tiff'))[0]
+            # file_names = os.listdir(product_paths['res_10m'])
+            # tci_path = product_paths['res_10m'] + [f for f in file_names if 'TCI_10m.tiff' in f][0]
+            product_date_current = product['title'].values[0][11:19]
+            if product_date_current == product_date:
+                tile_paths.append(str(tile_path))
+                relative_orbit = product['title'].values[0][33:37]
+        return relative_orbit, tile_paths
 
     def coregister(self, src_path, dst_path):
         try:
@@ -244,19 +259,3 @@ class S2Processor(BaseProcessor):
             logging.error("Coregistration error with file: " + str(src_path))
             CR = 'coreg_error'
             return CR
-
-    def __get_tile_paths(self, product_date, mode='TCI'):
-        tile_paths = []  # Placeholder for the paths to all TCI products
-        for index in range(len(self.products_df.index)):
-            product = self.products_df.iloc[[index]].copy()
-            product = self.__concat_resolutions_paths(product)
-            res_10m_path = product['res_10m_path'].values[0]
-            tile_path = list(res_10m_path.glob('*_' + mode + '_10m.tiff'))[0]
-            # file_names = os.listdir(product_paths['res_10m'])
-            # tci_path = product_paths['res_10m'] + [f for f in file_names if 'TCI_10m.tiff' in f][0]
-            product_date_current = product['title'].values[0][11:19]
-            if product_date_current == product_date:
-                tile_paths.append(str(tile_path))
-                relative_orbit = product['title'].values[0][33:37]
-        return relative_orbit, tile_paths
-

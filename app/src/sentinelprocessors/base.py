@@ -33,7 +33,7 @@ class BaseProcessor(object):
             src = src_tmp  # Set the temp file to be the source file
         src_ds = gdal.Open(str(src))  # src is a Path object but gdal requires a string, therefore str(src)
         creation_options = ['NUM_THREADS=ALL_CPUS']
-        config_options = ['GDAL_CACHEMAX=8192']
+        config_options = ['GDAL_CACHEMAX=16000000000']
         warp_options = gdal.WarpOptions(dstSRS=crs, resampleAlg='cubic', srcNodata="0 0 0", multithread=True,
                                         creationOptions=creation_options)
         dst_ds = gdal.Warp(str(dst), src_ds, options=warp_options, config_options=config_options)
@@ -76,15 +76,15 @@ class BaseProcessor(object):
         # (https://lists.osgeo.org/pipermail/gdal-dev/2018-November/049289.html)
         if compression == 'NONE':
             creation_options = ['TILED=YES', 'COPY_SRC_OVERVIEWS=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512',
-                                'NUM_THREADS=ALL_CPUS', 'BIGTIFF=IF_SAFER']
+                                'NUM_THREADS=ALL_CPUS', 'BIGTIFF=YES']
         elif compression == 'DEFLATE':
             creation_options = ['COMPRESS=DEFLATE', 'TILED=YES', 'COPY_SRC_OVERVIEWS=YES',
-                                'BLOCKXSIZE=512', 'BLOCKYSIZE=512', 'NUM_THREADS=ALL_CPUS', 'BIGTIFF=IF_SAFER']
+                                'BLOCKXSIZE=512', 'BLOCKYSIZE=512', 'NUM_THREADS=ALL_CPUS', 'BIGTIFF=YES']
         elif compression == 'JPEG':
             creation_options = ['COMPRESS=JPEG', 'PHOTOMETRIC=YCBCR', 'JPEG_QUALITY=90', 'TILED=YES',
                                 'COPY_SRC_OVERVIEWS=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512', 'NUM_THREADS=ALL_CPUS',
-                                'BIGTIFF=IF_SAFER']
-        config_options = ['GDAL_CACHEMAX=8192']
+                                'BIGTIFF=YES']
+        config_options = ['GDAL_CACHEMAX=16000000000']
         translate_options = gdal.TranslateOptions(creationOptions=creation_options)
         ds = gdal.Translate(str(img), ds, options=translate_options, config_options=config_options)
         ds = None
@@ -103,17 +103,18 @@ class BaseProcessor(object):
         else:
             logging.debug("vrt file already exists: " + str(vrt_path))
 
-    def vrt_to_geotiff(self, vrt_path, img_path):
+    def vrt_to_geotiff(self, vrt_path, img_path, dst_format='COG', compression='DEFLATE'):
         if not img_path.exists() or self.overwrite_products:
             ds = gdal.Open(str(vrt_path))
-            creation_options = ['TILED=YES', 'COPY_SRC_OVERVIEWS=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512',
-                                'NUM_THREADS=ALL_CPUS', 'BIGTIFF=IF_SAFER']
-            config_options = ['GDAL_CACHEMAX=8192']
-            translate_options = gdal.TranslateOptions(creationOptions=creation_options)
+            config_options = ['GDAL_CACHEMAX=16000000000']
+#             creation_options = ['TILED=YES', 'COPY_SRC_OVERVIEWS=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512',
+#                                 'NUM_THREADS=ALL_CPUS', 'BIGTIFF=YES']
+#             translate_options = gdal.TranslateOptions(creationOptions=creation_options)
+            creation_options = [f'COMPRESS={compression}', 'NUM_THREADS=ALL_CPUS', 'BIGTIFF=YES']
+            translate_options = gdal.TranslateOptions(format=dst_format, creationOptions=creation_options)
             ds = gdal.Translate(destName=str(img_path), srcDS=ds, options=translate_options,
                                 config_options=config_options)
             ds = None
-
 
     @staticmethod
     def create_thumbnail(src, dst):
