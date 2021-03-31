@@ -82,19 +82,20 @@ class ProcessPipeliner(object):
 
                     # Move to final output path
                     if FLAGS.move_to_output_directory and FLAGS.output_directory is not None:
-                        logging.info("Moving files")
                         tif_path = vrt_path.with_suffix('.tif')
                         png_path = vrt_path.with_suffix('.png')
 #                         coreg_new_path = (Path(FLAGS.output_path) / vrt.name).with_suffix('.tif')
                         new_output_dir = Path(FLAGS.output_directory)
-                        print(str(new_output_dir))
                         tif_new_path = new_output_dir / tif_path.name
-                        png_new_path = Path(FLAGS.output_path) / png_path.name
-                        logging.info(f"Moving {str(tif_path)} to output directory {str(tif_new_path)}")
+                        png_new_path = new_output_dir / png_path.name
                         if not tif_new_path.parent.exists():  # Create directory if it does not exist
                             os.makedirs(tif_new_path.parent)
-                        shutil.move(tif_path, tif_new_path)
+                        logging.info(f"Moving {str(png_path)} to output directory {str(png_new_path)}")
                         shutil.move(png_path, png_new_path)
+                        logging.info(f"Finished moving {str(png_path)} to output directory {str(png_new_path)}")
+                        logging.info(f"Moving {str(tif_path)} to output directory {str(tif_new_path)}")
+                        shutil.move(tif_path, tif_new_path)
+                        logging.info(f"Finished moving {str(tif_path)} to output directory {str(tif_new_path)}")
                     else:
                         pass
                         
