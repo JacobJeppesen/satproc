@@ -51,13 +51,23 @@ class ProcessPipeliner(object):
             #       built-in in some of the used processing functions). But that should be fine. Generally, when
             #       there is a big need for parallization, it is because data from multiple dates are being 
             #       processed. For single-date datasets, the user can wait a bit longer.
+
+            # TODO: Get the check for processed products finalized
+            # pseudo-code to check all previously processed products
+            data_directory = Path('data')
+            output_directory = data_directory / 'output_data' / 's1' / 'combined'
+            if output_directory.exists():
+                filenames = list(output_directory.glob('*.tif'))
+                processed_date_abs_orbit = [filename[4:17] for filename in filenames]
+                # Then use the processed_date_abs_orbit to check if the product has been processed in the next loop
             
             failed_product_date_abs_orbit = []
             for product_date_abs_orbit in tqdm(product_dates_abs_orbits):
                 # NOTE: The code below is used for the Elsevier paper. Do not trust it too much. The s1_products_df_date
                 #       should be properly implemented, and so should the co-registering of Sentinel-1 data.
                 print("\n")
-                try:
+                # try:
+                if True:
                     # Process the individual tiles
                     date = product_date_abs_orbit[:8]
                     abs_orbit = product_date_abs_orbit[9:]
@@ -104,9 +114,9 @@ class ProcessPipeliner(object):
                         logging.info("Deleting output_data/s1/GRD folder")
                         grd_data_path = Path('data/output/output_data/s1/GRD')
                         shutil.rmtree(grd_data_path)
-                except:
-                    logging.info(f"Following date and absolute orbit failed: {product_date_abs_orbit}")
-                    failed_product_date_abs_orbit.append(product_date_abs_orbit)
+                # except:
+                #     logging.info(f"Following date and absolute orbit failed: {product_date_abs_orbit}")
+                #     failed_product_date_abs_orbit.append(product_date_abs_orbit)
                 print("\n")
                 print("\n")
                 

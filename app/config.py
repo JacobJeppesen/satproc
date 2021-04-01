@@ -11,6 +11,7 @@ def define_flags():
     flags.DEFINE_string('password', 'password', 'Username for scihub.copernicus.eu')
     flags.DEFINE_string('data_directory', '/data/', 'Data directory used for storing downloaded and processed data')
     flags.DEFINE_bool('download', True, 'Download the files')
+    flags.DEFINE_bool('check_downloads', False, 'Check all downloads to ensure none are corrupted')
     flags.DEFINE_bool('process_tiles', True, 'Process the downloaded files')
     flags.DEFINE_bool('compress', True, 'Compress pre- and post-processed geotiff files')
     flags.DEFINE_bool('move_to_output_directory', False, 'Move output to output directory')

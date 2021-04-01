@@ -179,6 +179,14 @@ class Downloader(object):
             if not file.with_suffix('.nc').exists():
                 shutil.copy(str(file), str(file.with_suffix('.nc')))
 
+        if FLAGS.check_downloads:
+            # Check for corrupted downloads (sometimes the download responds with OK although it was not downloaded)
+            logging.info("Checking for corrupted downloads")
+            corrupted_products = self.api.check_files(ids=products_df['uuid'].tolist(), directory=zipfiles_directory)
+            if len(corrupted_products) != 0:
+                logging.info("Found corrupted downloads - will retry")
+                raise AssertionError()
+
     def queried_products_as_geojson(self):
         return self.api.to_geojson(self.products)
 
