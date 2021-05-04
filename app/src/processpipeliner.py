@@ -54,12 +54,12 @@ class ProcessPipeliner(object):
 
             # TODO: Get the check for processed products finalized
             # pseudo-code to check all previously processed products
-            data_directory = Path('data')
-            output_directory = data_directory / 'output_data' / 's1' / 'combined'
-            if output_directory.exists():
-                filenames = list(output_directory.glob('*.tif'))
-                processed_date_abs_orbit = [filename[4:17] for filename in filenames]
-                # Then use the processed_date_abs_orbit to check if the product has been processed in the next loop
+            # data_directory = Path('data')
+            # output_directory = data_directory / 'output_data' / 's1' / 'combined'
+            # if output_directory.exists():
+            #     filenames = list(output_directory.glob('*.tif'))
+            #     processed_date_abs_orbit = [filename[4:17] for filename in filenames]
+            #     # Then use the processed_date_abs_orbit to check if the product has been processed in the next loop
             
             failed_product_date_abs_orbit = []
             for product_date_abs_orbit in tqdm(product_dates_abs_orbits):

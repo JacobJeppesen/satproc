@@ -1,25 +1,27 @@
 import datetime
 import os
-import duallog
 
 import pandas as pd
 
 from osgeo import gdal
 from pathlib import Path
-from absl import app, flags, logging
+from absl import app, flags
 from sentinelsat import read_geojson, geojson_to_wkt
 
 from config import define_flags
 from src.downloader import Downloader
 from src.processpipeliner import ProcessPipeliner
+from loguru import logger
+from src.utils import setup_logging
 
 FLAGS = flags.FLAGS
 
 
 def main(argv):
     # Setup logging
-    duallog.setup(Path(FLAGS.data_directory) / 'logs')
-    logging.set_verbosity(FLAGS.logging_verbosity)  # Must be called after duallog.setup() to function properly
+    logfile_dir = Path(FLAGS.data_directory) / 'logs'
+    setup_logging(terminal_loglevel=FLAGS.logging_verbosity, root_logger_loglevel='info', logfile_dir=logfile_dir,
+                  enqueue=True)
 
     # Configure GDAL
     gdal.SetCacheMax(16000000000)
@@ -35,10 +37,10 @@ def main(argv):
     if order_id == 'Empty':
         order_id = 'order_' + datetime.datetime.today().strftime('%Y%m%d-%H%M%S')
 
-        logging.info("####################################")
-        logging.info("# Initializing Sentinel downloader #")
-        logging.info("####################################")
-        logging.info("Order id: " + order_id)
+        logger.info("####################################")
+        logger.info("# Initializing Sentinel downloader #")
+        logger.info("####################################")
+        logger.info("Order id: " + order_id)
         downloader = Downloader(username=FLAGS.username, password=FLAGS.password, satellite=FLAGS.satellite,
                                 order_id=order_id, directory=data_dir)
 
@@ -60,23 +62,23 @@ def main(argv):
         # Print the number of products and size of all products to be downloaded
         downloader.print_num_and_size_of_products()
         downloader.save_queried_products()  # Save a geojson containing all products to be downloaded
-        logging.info("")
+        logger.info("")
 
         if FLAGS.download:
-            logging.info("####################")
-            logging.info("# Downloading data #")
-            logging.info("####################")
+            logger.info("####################")
+            logger.info("# Downloading data #")
+            logger.info("####################")
             downloader.download_zipfiles()
-            logging.info("")
+            logger.info("")
 
     if FLAGS.process_tiles:
         # Load products to be processed (always load from file to ensure modularity for the downloader and processor)
         queried_products_path = (data_dir / 'orders' / order_id).with_suffix('.pkl')
         products_df = pd.read_pickle(queried_products_path)
 
-        logging.info("###################")
-        logging.info("# Processing data #")
-        logging.info("###################")
+        logger.info("###################")
+        logger.info("# Processing data #")
+        logger.info("###################")
         processpipeliner = ProcessPipeliner(products_df=products_df, directory=data_dir)
         processpipeliner.process_products()
 

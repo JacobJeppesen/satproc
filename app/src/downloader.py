@@ -5,7 +5,8 @@ import tenacity
 from collections import OrderedDict
 from sentinelsat import SentinelAPI
 from pathlib import Path
-from absl import flags, logging
+from absl import flags
+from loguru import logger
 
 FLAGS = flags.FLAGS
 
@@ -130,8 +131,8 @@ class Downloader(object):
 
 
     def print_num_and_size_of_products(self):
-        logging.info('Number of products = ' + str(len(list(self.products))))
-        logging.info('Total size [GB] = ' + str(self.api.get_products_size(self.products)))
+        logger.info('Number of products = ' + str(len(list(self.products))))
+        logger.info('Total size [GB] = ' + str(self.api.get_products_size(self.products)))
 
     # https://sentinelsat.readthedocs.io/en/master/api.html#lta-products
     # TODO: Get LTA retrieval to work properly (install of newest sentinelsat version is in dockerfile)
@@ -157,34 +158,34 @@ class Downloader(object):
         s5p_products = products_df[products_df['platformname'] == 'Sentinel-5 Precursor']
 
         if len(non_s5p_products):
-            logging.info("Downloading Sentinel-1/2/3 products")
+            logger.info("Downloading Sentinel-1/2/3 products")
             self.api.download_all(non_s5p_products.to_dict(into=OrderedDict, orient='index'),
                                   directory_path=zipfiles_directory)
         else:
-            logging.info("No Sentinel-1/2/3 products found in query")
+            logger.info("No Sentinel-1/2/3 products found in query")
 
         if len(s5p_products):
-            logging.info("Downloading Sentinel-5p products")
+            logger.info("Downloading Sentinel-5p products")
             self.api_s5p.download_all(s5p_products.to_dict(into=OrderedDict, orient='index'),
                                       directory_path=zipfiles_directory)
         else:
-            logging.info("No Sentinel-5p products found in query")
+            logger.info("No Sentinel-5p products found in query")
 
         # The Sentinel-5p data has wrongly been given the filetype .zip, but it should be .nc, so make a copy with
         # .nc extension. A copy is made instead of renaming so sentinelsat doesn't re-download the file every time
         # it is run.
         s5p_downloaded_files = zipfiles_directory.glob('S5P*.zip')
-        logging.debug("Renaming downloaded Sentinel-5p files from .zip to .nc (due to bug in SentinelSat)")
+        logger.debug("Renaming downloaded Sentinel-5p files from .zip to .nc (due to bug in SentinelSat)")
         for file in s5p_downloaded_files:
             if not file.with_suffix('.nc').exists():
                 shutil.copy(str(file), str(file.with_suffix('.nc')))
 
         if FLAGS.check_downloads:
             # Check for corrupted downloads (sometimes the download responds with OK although it was not downloaded)
-            logging.info("Checking for corrupted downloads")
+            logger.info("Checking for corrupted downloads")
             corrupted_products = self.api.check_files(ids=products_df['uuid'].tolist(), directory=zipfiles_directory)
             if len(corrupted_products) != 0:
-                logging.info("Found corrupted downloads - will retry")
+                logger.info("Found corrupted downloads - will retry")
                 raise AssertionError()
 
     def queried_products_as_geojson(self):
