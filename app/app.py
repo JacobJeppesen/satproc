@@ -17,6 +17,7 @@ from src.utils import setup_logging
 FLAGS = flags.FLAGS
 
 
+@logger.catch
 def main(argv):
     # Setup logging
     logfile_dir = Path(FLAGS.data_directory) / 'logs'

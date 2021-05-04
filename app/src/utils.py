@@ -98,4 +98,3 @@ def setup_logging(terminal_loglevel: str = "INFO", logfile_loglevel: str = "DEBU
     # logger.warning("Test warning")
     # logger.error("Test error")
     # logger.critical("Test fatal")
-
