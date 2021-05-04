@@ -7,6 +7,9 @@ __pycache__/
 # Exclude PyCharm folder
 .idea
 
+# Exclude jupyter notebook checkpoints
+.ipynb_checkpoints
+
 # Exclude data folders
 app/data/*
 !app/data/geojson
