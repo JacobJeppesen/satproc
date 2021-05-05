@@ -55,18 +55,19 @@ class ProcessPipeliner(object):
 
             # TODO: Get the check for processed products finalized
             # pseudo-code to check all previously processed products
-            data_directory = Path('data')
-            output_directory = data_directory / 'output_data' / 's1' / 'combined'
+            output_directory = Path(FLAGS.output_directory)
             processed_date_abs_orbit = []
             if output_directory.exists():
                 filenames = list(output_directory.glob('*.tif'))
-                processed_date_abs_orbit = [filename.stem[4:19] for filename in filenames]
+                processed_date_abs_orbits = [filename.stem[4:19] for filename in filenames]
+                for processed_date_abs_orbit in sorted(processed_date_abs_orbits):
+                    logger.info(f"Date and abs orbit has been processed: {processed_date_abs_orbit}")
 
             failed_product_date_abs_orbit = []
             for product_date_abs_orbit in tqdm(product_dates_abs_orbits):
                 # NOTE: The code below is used for the Elsevier paper. Do not trust it too much. The s1_products_df_date
                 #       should be properly implemented, and so should the co-registering of Sentinel-1 data.
-                if product_date_abs_orbit not in processed_date_abs_orbit:
+                if product_date_abs_orbit not in processed_date_abs_orbits:
                     try:
                         # Process the individual tiles
                         date = product_date_abs_orbit[:8]
