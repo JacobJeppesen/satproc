@@ -5,8 +5,9 @@ import os
 
 import numpy as np
 import pandas as pd
-from absl import flags, logging
+from absl import flags
 from tqdm import tqdm
+from loguru import logger
 
 from src.sentinelprocessors.s1processor import S1Processor
 from src.sentinelprocessors.s2processor import S2Processor
@@ -27,7 +28,7 @@ class ProcessPipeliner(object):
 
     def process_products(self):
         if self.satellite == 's1' or self.satellite == 'all':
-            logging.info("### Processing Sentinel-1 products ###")
+            logger.info("### Processing Sentinel-1 products ###")
             s1_products_df = self.products_df[self.products_df['platformname'] == 'Sentinel-1']
             s1processor = S1Processor(s1_products_df, self.directory)
             # Create folders now to avoid multiple processes trying to create the same folder later (leads to errors)
@@ -54,77 +55,76 @@ class ProcessPipeliner(object):
 
             # TODO: Get the check for processed products finalized
             # pseudo-code to check all previously processed products
-            # data_directory = Path('data')
-            # output_directory = data_directory / 'output_data' / 's1' / 'combined'
-            # if output_directory.exists():
-            #     filenames = list(output_directory.glob('*.tif'))
-            #     processed_date_abs_orbit = [filename[4:17] for filename in filenames]
-            #     # Then use the processed_date_abs_orbit to check if the product has been processed in the next loop
-            
+            data_directory = Path('data')
+            output_directory = data_directory / 'output_data' / 's1' / 'combined'
+            processed_date_abs_orbit = []
+            if output_directory.exists():
+                filenames = list(output_directory.glob('*.tif'))
+                processed_date_abs_orbit = [filename.stem[4:19] for filename in filenames]
+
             failed_product_date_abs_orbit = []
             for product_date_abs_orbit in tqdm(product_dates_abs_orbits):
                 # NOTE: The code below is used for the Elsevier paper. Do not trust it too much. The s1_products_df_date
                 #       should be properly implemented, and so should the co-registering of Sentinel-1 data.
-                print("\n")
-                # try:
-                if True:
-                    # Process the individual tiles
-                    date = product_date_abs_orbit[:8]
-                    abs_orbit = product_date_abs_orbit[9:]
-                    s1_products_df_date = s1_products_df[s1_products_df['title'].str.contains(date)]
-                    s1_products_df_date = s1_products_df_date[s1_products_df_date['title'].str.contains(abs_orbit)]
-                    s1processor.products_df = s1_products_df_date.copy()
+                if product_date_abs_orbit not in processed_date_abs_orbit:
+                    try:
+                        # Process the individual tiles
+                        date = product_date_abs_orbit[:8]
+                        abs_orbit = product_date_abs_orbit[9:]
+                        s1_products_df_date = s1_products_df[s1_products_df['title'].str.contains(date)]
+                        s1_products_df_date = s1_products_df_date[s1_products_df_date['title'].str.contains(abs_orbit)]
+                        s1processor.products_df = s1_products_df_date.copy()
 
-                    # Multiprocessing method from here: https://stackoverflow.com/a/5442981/12045808 (if you want tqdm then look
-                    # here https://github.com/tqdm/tqdm/issues/484#issuecomment-353383768)
-                    index_arg = range(len(s1_products_df_date))
-                    with Pool(processes=self.s1_num_proc) as pool:
-                        pool.map(s1processor.process, index_arg)
+                        # Multiprocessing method from here: https://stackoverflow.com/a/5442981/12045808 (if you want tqdm then look
+                        # here https://github.com/tqdm/tqdm/issues/484#issuecomment-353383768)
+                        index_arg = range(len(s1_products_df_date))
+                        with Pool(processes=self.s1_num_proc) as pool:
+                            pool.map(s1processor.process, index_arg)
 
-                    # Create the vrt with the combined tiles
-                    vrt_path = s1processor.create_vrt_and_cog(product_date_abs_orbit, create_thumbnail=True)
+                        # Create the vrt with the combined tiles
+                        vrt_path = s1processor.create_vrt_and_cog(product_date_abs_orbit, create_thumbnail=True)
 
-                    # Co-register
-                    if FLAGS.s1_coregister:
-                        logging.info("Co-registering")
-                        coreg_path = (vrt_path.parent / f'{vrt_path.stem}_coreg').with_suffix('.tif')
-                        s1processor.temp_coregister_function_for_elsevier_intepretability_paper(vrt_path, coreg_path)
+                        # Co-register
+                        if FLAGS.s1_coregister:
+                            logger.info("Co-registering")
+                            coreg_path = (vrt_path.parent / f'{vrt_path.stem}_coreg').with_suffix('.tif')
+                            s1processor.temp_coregister_function_for_elsevier_intepretability_paper(vrt_path, coreg_path)
 
-                    # Move to final output path
-                    if FLAGS.move_to_output_directory and FLAGS.output_directory is not None:
-                        tif_path = vrt_path.with_suffix('.tif')
-                        png_path = vrt_path.with_suffix('.png')
-#                         coreg_new_path = (Path(FLAGS.output_path) / vrt.name).with_suffix('.tif')
-                        new_output_dir = Path(FLAGS.output_directory)
-                        tif_new_path = new_output_dir / tif_path.name
-                        png_new_path = new_output_dir / png_path.name
-                        if not tif_new_path.parent.exists():  # Create directory if it does not exist
-                            os.makedirs(tif_new_path.parent)
-                        logging.info(f"Moving {str(png_path)} to output directory {str(png_new_path)}")
-                        shutil.move(png_path, png_new_path)
-                        logging.info(f"Finished moving {str(png_path)} to output directory {str(png_new_path)}")
-                        logging.info(f"Moving {str(tif_path)} to output directory {str(tif_new_path)}")
-                        shutil.move(tif_path, tif_new_path)
-                        logging.info(f"Finished moving {str(tif_path)} to output directory {str(tif_new_path)}")
-                    else:
-                        pass
-                        
-                    if FLAGS.s1_del_intermediate:
-                        # Delete all the individual tile data. Used for Elsevier paper due to lack of storage capacity. 
-                        logging.info("Deleting output_data/s1/GRD folder")
-                        grd_data_path = Path('data/output/output_data/s1/GRD')
-                        shutil.rmtree(grd_data_path)
-                # except:
-                #     logging.info(f"Following date and absolute orbit failed: {product_date_abs_orbit}")
-                #     failed_product_date_abs_orbit.append(product_date_abs_orbit)
-                print("\n")
-                print("\n")
-                
+                        # Move to final output path
+                        if FLAGS.move_to_output_directory and FLAGS.output_directory is not None:
+                            tif_path = vrt_path.with_suffix('.tif')
+                            png_path = vrt_path.with_suffix('.png')
+    #                         coreg_new_path = (Path(FLAGS.output_path) / vrt.name).with_suffix('.tif')
+                            new_output_dir = Path(FLAGS.output_directory)
+                            tif_new_path = new_output_dir / tif_path.name
+                            png_new_path = new_output_dir / png_path.name
+                            if not tif_new_path.parent.exists():  # Create directory if it does not exist
+                                os.makedirs(tif_new_path.parent)
+                            logger.info(f"Moving {str(png_path)} to output directory {str(png_new_path)}")
+                            shutil.move(png_path, png_new_path)
+                            logger.info(f"Finished moving {str(png_path)} to output directory {str(png_new_path)}")
+                            logger.info(f"Moving {str(tif_path)} to output directory {str(tif_new_path)}")
+                            shutil.move(tif_path, tif_new_path)
+                            logger.info(f"Finished moving {str(tif_path)} to output directory {str(tif_new_path)}")
+                        else:
+                            pass
+
+                        if FLAGS.s1_del_intermediate:
+                            # Delete all the individual tile data. Used for Elsevier paper due to lack of storage capacity.
+                            logger.info("Deleting output_data/s1/GRD folder")
+                            grd_data_path = Path('data/output/output_data/s1/GRD')
+                            shutil.rmtree(grd_data_path)
+                    except:
+                        logger.info(f"Following date and absolute orbit failed: {product_date_abs_orbit}")
+                        failed_product_date_abs_orbit.append(product_date_abs_orbit)
+                else:
+                    logger.info(f"Date and absolute orbit has already been processed: {product_date_abs_orbit}")
+
             for failed_product in failed_product_date_abs_orbit:
-                logging.info(f"Following product failed processing: {failed_product}")                
+                logger.info(f"Following product failed processing: {failed_product}")
 
         if self.satellite == 's2' or self.satellite == 'all':
-            logging.info("### Processing Sentinel-2 products ###")
+            logger.info("### Processing Sentinel-2 products ###")
             s2_products_df = self.products_df[self.products_df['platformname'] == 'Sentinel-2']
             s2processor = S2Processor(s2_products_df, self.directory)
 
@@ -140,7 +140,7 @@ class ProcessPipeliner(object):
             s2processor.create_vrt_files_and_coregister()
 
         if self.satellite == 's3' or self.satellite == 'all':
-            logging.info("### Processing Sentinel-3 products ###")
+            logger.info("### Processing Sentinel-3 products ###")
             s3_products_df = self.products_df[self.products_df['platformname'] == 'Sentinel-3']
             s3processor = S3Processor(s3_products_df, self.directory)
             index_arg = range(len(s3_products_df))
@@ -148,7 +148,7 @@ class ProcessPipeliner(object):
                 pool.map(s3processor.process, index_arg)
 
         if self.satellite == 's5p' or self.satellite == 'all':
-            logging.info("### Processing Sentinel-5p products ###")
+            logger.info("### Processing Sentinel-5p products ###")
             s5_products_df = self.products_df[self.products_df['platformname'] == 'Sentinel-5 Precursor']
             s5processor = S5Processor(s5_products_df, self.directory)
             index_arg = range(len(s5_products_df))
