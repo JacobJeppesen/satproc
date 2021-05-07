@@ -7,6 +7,8 @@ import rasterio
 import shutil
 from absl import flags
 from matplotlib import pyplot as plt
+from time import sleep
+from random import randint
 
 from loguru import logger
 from src.sentinelprocessors.base import BaseProcessor
@@ -24,6 +26,9 @@ class S1Processor(BaseProcessor):
         self.output_crs = FLAGS.s1_output_crs
 
     def process(self, index):
+        # Sleep between 0 and 2 seconds to test if errors were caused by simultaneously starting the processing of multiple products in parallel
+        sleep(randint(0, 2000) / 1000)
+
         # Extract the row from the dataframe with the product process (use copy to avoid "copy of a slice warning")
         # https://stackoverflow.com/questions/31468176/setting-values-on-a-copy-of-a-slice-from-a-dataframe
         product = self.products_df.iloc[[index]].copy()
@@ -61,11 +66,11 @@ class S1Processor(BaseProcessor):
                                                                         str(specklefilter),
                                                                         str(dst_path))
         if not dst_path.exists() or self.overwrite_products:
-            logger.debug('Executing SNAP pre-processing graph for product: ' + str(product_path))
+            logger.info('Executing SNAP pre-processing graph for product: ' + str(product_path))
             self.exec_graph(cmd)
-            logger.debug('Sentinel-1 product has been preprocessed: ' + str(product_path))
+            logger.info('Sentinel-1 product has been preprocessed: ' + str(product_path))
         else:
-            logger.debug('Sentinel-1 product has already been preprocessed: ' + str(product_path))
+            logger.info('Sentinel-1 product has already been preprocessed: ' + str(product_path))
 
         return dst_path
 
@@ -82,12 +87,12 @@ class S1Processor(BaseProcessor):
                                                                                          str(output_vv_vh))
 
         if not output_vh.exists() or self.overwrite_products:
+            logger.info('Creating Sentinel-1 individual band geotiffs for product: ' +
+                        str(preprocessed_product_path))
             self.exec_graph(cmd)
-            logger.debug('Sentinel-1 product has had individual geotiff bands created: ' +
-                          str(preprocessed_product_path))
         else:
-            logger.debug('Sentinel-1 product already had individual geotiff bands created: ' +
-                          str(preprocessed_product_path))
+            logger.info('Sentinel-1 product already had individual band geotiffs created: ' +
+                        str(preprocessed_product_path))
 
         return [output_vh, output_vv, output_vv_vh]
 
@@ -98,6 +103,7 @@ class S1Processor(BaseProcessor):
         dst_path = product_path / 'processed' / dst_name
 
         if not dst_path.exists() or self.overwrite_products:
+            logger.info('Creating Sentinel-1 RGB geotiff for product: ' + str(dst_path))
             if not dst_path.parent.exists():  # Create directory if it does not exist
                 os.makedirs(dst_path.parent)
 
@@ -125,9 +131,8 @@ class S1Processor(BaseProcessor):
             # NOTE: Commented out for Elsevier paper to improve processing speed (the individual tiles are deleted after they have been combined anyways)
             #             self.create_sentinel1_thumbnail(dst_path)
 
-            logger.debug('Sentinel-1 product has had RGB geotiff created: ' + str(dst_path))
         else:
-            logger.debug('Sentinel-1 product already had RGB geotiff created: ' + str(dst_path))
+            logger.info('Sentinel-1 product already had RGB geotiff created: ' + str(dst_path))
 
     def create_vrt_and_cog(self, product_date_abs_orbit, create_thumbnail=True):
         logger.info("Creating Sentinel-1 vrt and geotiff file(s) for date and abs orbit: " + product_date_abs_orbit)
@@ -202,6 +207,7 @@ class S1Processor(BaseProcessor):
 
     @staticmethod
     def get_rel_orbit_and_pass_mode(manifest_path):
+        logger.info(f"Getting relative orbit and pass mode from manifest: {str(manifest_path)}")
         with open(manifest_path) as fh:
             for line in fh:
                 if ('relativeOrbitNumber' in line and 'start' in line):

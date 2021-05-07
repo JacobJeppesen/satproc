@@ -2,8 +2,8 @@ import os
 import zipfile
 
 from pathlib import Path
-from absl import logging
 from osgeo import gdal
+from loguru import logger
 
 
 class BaseProcessor(object):
@@ -15,15 +15,16 @@ class BaseProcessor(object):
 
     def unzip_product(self, product, use_tile_path=False):
         if not product['product_path'].values[0].exists() or self.overwrite_products:
+            logger.info('Product will be unzipped: ' + product['title'].values[0])
             file_name = product['title'].values[0]
             with zipfile.ZipFile((self.directory / 'zipfiles' / file_name).with_suffix('.zip'), "r") as zip_ref:
                 if use_tile_path:
                     zip_ref.extractall(product['tile_path'].values[0])
                 else:
                     zip_ref.extractall((product['product_path'].values[0]).parent)
-            logging.debug('Product has been unzipped: ' + product['title'].values[0])
+            logger.info('Product has been unzipped: ' + product['title'].values[0])
         else:
-            logging.debug('Unzipped product already exists: ' + product['title'].values[0])
+            logger.info('Unzipped product already exists: ' + product['title'].values[0])
 
     def reproject_image(self, src, dst, crs='EPSG:32632'):
         src_tmp = None
@@ -95,13 +96,13 @@ class BaseProcessor(object):
         vrt_options = gdal.BuildVRTOptions(addAlpha=False, hideNodata=False, allowProjectionDifference=False,
                                            resolution='highest')
         if not vrt_path.exists() or self.overwrite_products:
-            logging.debug("Creating vrt file: " + str(vrt_path))
+            logger.debug("Creating vrt file: " + str(vrt_path))
             if not vrt_path.parent.exists():  # Create directory if it does not exist
                 os.makedirs(vrt_path.parent)
             vrt = gdal.BuildVRT(str(vrt_path), src_paths, options=vrt_options)
             vrt = None  # Required for saving the vrt (https://gis.stackexchange.com/a/314580)
         else:
-            logging.debug("vrt file already exists: " + str(vrt_path))
+            logger.debug("vrt file already exists: " + str(vrt_path))
 
     def vrt_to_geotiff(self, vrt_path, img_path, dst_format='COG', compression='DEFLATE'):
         if not img_path.exists() or self.overwrite_products:

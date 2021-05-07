@@ -60,8 +60,8 @@ class ProcessPipeliner(object):
             if output_directory.exists():
                 filenames = list(output_directory.glob('*.tif'))
                 processed_date_abs_orbits = [filename.stem[4:19] for filename in filenames]
-                for processed_date_abs_orbit in sorted(processed_date_abs_orbits):
-                    logger.info(f"Date and abs orbit has been processed: {processed_date_abs_orbit}")
+                #for processed_date_abs_orbit in sorted(processed_date_abs_orbits):
+                #    logger.info(f"Date and abs orbit has been processed: {processed_date_abs_orbit}")
 
             failed_product_date_abs_orbit = []
             for product_date_abs_orbit in tqdm(product_dates_abs_orbits):
