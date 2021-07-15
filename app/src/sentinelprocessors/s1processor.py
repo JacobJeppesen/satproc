@@ -32,29 +32,29 @@ class S1Processor(BaseProcessor):
         # Extract the row from the dataframe with the product process (use copy to avoid "copy of a slice warning")
         # https://stackoverflow.com/questions/31468176/setting-values-on-a-copy-of-a-slice-from-a-dataframe
         product = self.products_df.iloc[[index]].copy()
-        try:
-            logger.info("Processing product: " + str(product['title'].values[0]))
-            self.unzip_product(product)
-            product_path = product['product_path'].values[0]
+#         try:
+        logger.info("Processing product: " + str(product['title'].values[0]))
+        self.unzip_product(product)
+        product_path = product['product_path'].values[0]
 
-            # NOTE: The following function should not be necessary - I think it is in the product dataframe already
-            manifest_path = product_path / 'manifest.safe'
-            rel_orbit, pass_mode = self.get_rel_orbit_and_pass_mode(manifest_path)
+        # NOTE: The following function should not be necessary - I think it is in the product dataframe already
+        manifest_path = product_path / 'manifest.safe'
+        rel_orbit, pass_mode = self.get_rel_orbit_and_pass_mode(manifest_path)
 
-            # Run preprocessing graph
-            preprocessed_product_path = self.preprocess(product_path, rel_orbit, pass_mode)
+        # Run preprocessing graph
+        preprocessed_product_path = self.preprocess(product_path, rel_orbit, pass_mode)
 
-            # Create geotiffs
-            vh_path, vv_path, vv_vh_path = self.to_geotiff_bands(preprocessed_product_path)
-            self.to_geotiff_rgb(vh_path, vv_path, vv_vh_path, product_path, dtype=rasterio.int16)
+        # Create geotiffs
+        vh_path, vv_path, vv_vh_path = self.to_geotiff_bands(preprocessed_product_path)
+        self.to_geotiff_rgb(vh_path, vv_path, vv_vh_path, product_path, dtype=rasterio.int16)
 
-            # Delete intermediate data
-            if self.del_intermediate:
-                shutil.rmtree(product_path / 'preprocessed')
+        # Delete intermediate data
+        if self.del_intermediate:
+            shutil.rmtree(product_path / 'preprocessed')
 
-            logger.info("Finished processing product: " + str(product['title'].values[0]))
-        except:
-            logger.error("An error occured during proccesing of: " + str(product['title'].values[0]))
+        logger.info("Finished processing product: " + str(product['title'].values[0]))
+#         except:
+#             logger.error("An error occured during proccesing of: " + str(product['title'].values[0]))
 
     def preprocess(self, product_path, rel_orbit, pass_mode):
         graph_path = Path('data') / 'graphs' / 'preprocessGraph.xml'
@@ -67,6 +67,7 @@ class S1Processor(BaseProcessor):
                                                                         str(dst_path))
         if not dst_path.exists() or self.overwrite_products:
             logger.info('Executing SNAP pre-processing graph for product: ' + str(product_path))
+            logger.info(f"SNAP graph cmd: {cmd}")
             self.exec_graph(cmd)
             logger.info('Sentinel-1 product has been preprocessed: ' + str(product_path))
         else:
